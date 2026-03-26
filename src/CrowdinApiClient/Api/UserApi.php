@@ -2,9 +2,12 @@
 
 namespace CrowdinApiClient\Api;
 
+use CrowdinApiClient\Model\HourlyUserReportSettingsTemplate;
 use CrowdinApiClient\Model\ProjectMember;
 use CrowdinApiClient\Model\ProjectMemberAddedStatistics;
+use CrowdinApiClient\Model\Report;
 use CrowdinApiClient\Model\User;
+use CrowdinApiClient\Model\UserReportSettingsTemplate;
 use CrowdinApiClient\ModelCollection;
 
 /**
@@ -137,5 +140,117 @@ class UserApi extends AbstractApi
     public function deleteMemberFromProject(int $projectId, int $memberId): void
     {
         $this->_delete(sprintf('projects/%d/members/%s', $projectId, $memberId));
+    }
+
+    /**
+     * List User Report Settings Templates
+     * @link https://developer.crowdin.com/api/v2/#operation/api.users.reports.settings-templates.getMany API Documentation
+     * @link https://developer.crowdin.com/enterprise/api/v2/#operation/api.users.reports.settings-templates.getMany API Documentation Enterprise
+     *
+     * @param int $userId
+     * @param array $params
+     * integer $params[limit]<br>
+     * integer $params[offset]
+     * @return ModelCollection
+     */
+    public function listReportSettingsTemplates(int $userId, array $params = []): ModelCollection
+    {
+        $options = [];
+        if ($params !== []) {
+            $options['params'] = $params;
+        }
+
+        $path = sprintf('users/%d/reports/settings-templates', $userId);
+        $response = $this->client->apiRequest('get', $path, null, $options);
+
+        $modelCollection = new ModelCollection();
+        $modelCollection->setPagination($response['pagination']);
+
+        foreach ($response['data'] as $item) {
+            $modelCollection->add($this->makeUserReportSettingsTemplate($item['data']));
+        }
+
+        return $modelCollection;
+    }
+
+    /**
+     * Create User Report Settings Template
+     * @link https://developer.crowdin.com/api/v2/#operation/api.users.reports.settings-templates.post API Documentation
+     * @link https://developer.crowdin.com/enterprise/api/v2/#operation/api.users.reports.settings-templates.post API Documentation Enterprise
+     *
+     * @param int $userId
+     * @param array $data
+     * string $data[name] required<br>
+     * string $data[currency] required<br>
+     * string $data[unit] required<br>
+     * array $data[config] required
+     * @return UserReportSettingsTemplate|HourlyUserReportSettingsTemplate|null
+     */
+    public function createReportSettingsTemplate(int $userId, array $data)
+    {
+        $path = sprintf('users/%d/reports/settings-templates', $userId);
+        $options = ['body' => json_encode($data), 'headers' => $this->getHeaders()];
+        $response = $this->client->apiRequest('post', $path, null, $options);
+
+        return $this->makeUserReportSettingsTemplate($response['data']);
+    }
+
+    /**
+     * Get User Report Settings Template
+     * @link https://developer.crowdin.com/api/v2/#operation/api.users.reports.settings-templates.get API Documentation
+     * @link https://developer.crowdin.com/enterprise/api/v2/#operation/api.users.reports.settings-templates.get API Documentation Enterprise
+     *
+     * @param int $userId
+     * @param int $reportSettingsTemplateId
+     * @return UserReportSettingsTemplate|HourlyUserReportSettingsTemplate|null
+     */
+    public function getReportSettingsTemplate(int $userId, int $reportSettingsTemplateId)
+    {
+        $path = sprintf('users/%d/reports/settings-templates/%d', $userId, $reportSettingsTemplateId);
+        $response = $this->client->apiRequest('get', $path);
+
+        return $this->makeUserReportSettingsTemplate($response['data']);
+    }
+
+    /**
+     * Delete User Report Settings Template
+     * @link https://developer.crowdin.com/api/v2/#operation/api.users.reports.settings-templates.delete API Documentation
+     * @link https://developer.crowdin.com/enterprise/api/v2/#operation/api.users.reports.settings-templates.delete API Documentation Enterprise
+     *
+     * @param int $userId
+     * @param int $reportSettingsTemplateId
+     */
+    public function deleteReportSettingsTemplate(int $userId, int $reportSettingsTemplateId): void
+    {
+        $this->_delete(sprintf('users/%d/reports/settings-templates/%d', $userId, $reportSettingsTemplateId));
+    }
+
+    /**
+     * Update User Report Settings Template
+     * @link https://developer.crowdin.com/api/v2/#operation/api.users.reports.settings-templates.patch API Documentation
+     * @link https://developer.crowdin.com/enterprise/api/v2/#operation/api.users.reports.settings-templates.patch API Documentation Enterprise
+     *
+     * @param int $userId
+     * @param UserReportSettingsTemplate|HourlyUserReportSettingsTemplate $reportSettingsTemplate
+     * @return UserReportSettingsTemplate|HourlyUserReportSettingsTemplate|null
+     */
+    public function updateReportSettingsTemplate(int $userId, $reportSettingsTemplate)
+    {
+        return $this->_update(
+            sprintf('users/%d/reports/settings-templates/%d', $userId, $reportSettingsTemplate->getId()),
+            $reportSettingsTemplate
+        );
+    }
+
+    /**
+     * @return HourlyUserReportSettingsTemplate|UserReportSettingsTemplate
+     */
+    private function makeUserReportSettingsTemplate(array $data)
+    {
+        if (($data['unit'] ?? '') === Report::UNIT_HOURS) {
+            return new HourlyUserReportSettingsTemplate($data);
+        }
+
+        return new UserReportSettingsTemplate($data);
     }
 }
